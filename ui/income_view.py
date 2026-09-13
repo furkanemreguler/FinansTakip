@@ -29,6 +29,7 @@ from ui.segmented_control import SegmentedControl
 from ui.theme import apply_card_shadow, LIGHT, DARK
 
 PAGE_SIZE = 12
+MONTHLY_CHART_MONTHS = 12
 AY_KISALTMA = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
 
 
@@ -48,7 +49,7 @@ class IncomeView(QWidget):
         self.current_page = 1
         self._pending_record: dict | None = None       # kur beklenirken tutulan form verisi
         self._rate_worker: RateFetchWorker | None = None
-        self._theme = LIGHT
+        self._theme = DARK
 
         self._build_ui()
         self._reload_all()
@@ -66,6 +67,10 @@ class IncomeView(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
+        # Kaydırma çubuğu görünmesin; fare tekerleği/trackpad ile kaydırma
+        # yine çalışır (ScrollBarAlwaysOff sadece görünürlüğü kapatır).
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         outer.addWidget(scroll)
 
         content = QWidget()
@@ -307,8 +312,13 @@ class IncomeView(QWidget):
             ["TARİH", "KALEM", "BRÜT TL", "NET TL", "NET/BRÜT", "KUR", "NET USD", ""]
         )
 
-        # Tablo, içinde bulunduğu kartın tam genişliğini kaplasın.
-        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        # Tablo, içinde bulunduğu kartın tam genişliğini kaplasın. Dikeyde Fixed:
+        # yükseklik _refresh_table içinde gösterilen satır sayısına göre elle
+        # hesaplanır, böylece tablonun kendi iç kaydırma çubuğu hiç devreye
+        # girmez — taşma olursa sayfayı saran QScrollArea kaydırır.
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         header = self.table.horizontalHeader()
         header.setMinimumSectionSize(90)
@@ -660,7 +670,16 @@ class IncomeView(QWidget):
 
         self._suppress_item_changed = False
 
+        self._resize_table_to_rows(len(page_records))
         self._render_pagination(total_pages, len(all_records))
+
+    def _resize_table_to_rows(self, row_count: int):
+        """Tabloyu gösterilen satır sayısına göre boyutlandırır ki iç kaydırma
+        çubuğu hiç gerekmesin; taşma varsa sayfayı saran QScrollArea kaydırır."""
+        header_h = self.table.horizontalHeader().sizeHint().height()
+        row_h = self.table.verticalHeader().defaultSectionSize()
+        frame = self.table.frameWidth() * 2
+        self.table.setFixedHeight(header_h + row_h * row_count + frame + 2)
 
     def _render_pagination(self, total_pages: int, total_records: int):
         while self.pagination_row.count():
@@ -688,7 +707,7 @@ class IncomeView(QWidget):
             )
         else:
             item_id_for_chart = None
-        series_data = income_repo.get_monthly_series(item_id_for_chart)
+        series_data = income_repo.get_monthly_series(item_id_for_chart)[-MONTHLY_CHART_MONTHS:]
 
         if self.chart_mode == "total":
             mode_label = "toplam"

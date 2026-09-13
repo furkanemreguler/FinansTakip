@@ -22,7 +22,7 @@ class MainWindow(QMainWindow):
         self.shell.theme_changed.connect(self._apply_theme)
         self.setCentralWidget(self.shell)
 
-        self._apply_theme("light")
+        self._apply_theme("dark")
 
     def _apply_theme(self, mode: str):
         theme = DARK if mode == "dark" else LIGHT

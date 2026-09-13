@@ -61,7 +61,7 @@ class AppShell(QWidget):
         layout.addSpacing(12)
 
         self.theme_toggle = SegmentedControl(
-            [("light", "Açık"), ("dark", "Koyu")], default="light"
+            [("light", "Açık"), ("dark", "Koyu")], default="dark"
         )
         self.theme_toggle.value_changed.connect(self.theme_changed.emit)
         layout.addWidget(self.theme_toggle)
