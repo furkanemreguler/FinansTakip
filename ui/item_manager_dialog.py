@@ -2,6 +2,10 @@
 "Kalemleri yönet" modal'ı: mevcut kalemler (aktif+arşivli) listelenir,
 her satırda Arşivle/Geri al butonu vardır. Altta yeni kalem ekleme alanı var.
 
+Gelir kalemleri ve yatırım araçları aynı CRUD şeklini (get_items/add_item/
+set_item_active) paylaştığı için bu dialog ikisi arasında repo modülü
+parametresiyle paylaşılır — income_view ve investment_view ikisi de kullanır.
+
 Kapatıldığında items_changed sinyali yayılır, çağıran ekran dropdown'ları
 ve tabloyu yenilemelidir.
 """
@@ -11,24 +15,26 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Signal, Qt
 
-import income_repo
-
 
 class ItemManagerDialog(QDialog):
     items_changed = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, repo, section_title: str, placeholder: str, parent=None):
+        """repo: get_items(include_archived)/add_item(name)/set_item_active(id, bool)
+        fonksiyonlarını sağlayan modül (income_repo veya investment_repo)."""
         super().__init__(parent)
+        self.repo = repo
+        self._placeholder = placeholder
         self.setWindowTitle("Kalemleri Yönet")
         self.setMinimumWidth(420)
-        self._build_ui()
+        self._build_ui(section_title)
         self._refresh_list()
 
-    def _build_ui(self):
+    def _build_ui(self, section_title: str):
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
 
-        title = QLabel("Gelir Kalemleri")
+        title = QLabel(section_title)
         title.setObjectName("sectionTitle")
         layout.addWidget(title)
 
@@ -44,7 +50,7 @@ class ItemManagerDialog(QDialog):
 
         add_row = QHBoxLayout()
         self.new_item_input = QLineEdit()
-        self.new_item_input.setPlaceholderText("Yeni kalem adı (örn. İkramiye)")
+        self.new_item_input.setPlaceholderText(self._placeholder)
         add_row.addWidget(self.new_item_input)
 
         add_button = QPushButton("Ekle")
@@ -67,7 +73,7 @@ class ItemManagerDialog(QDialog):
             if child.widget():
                 child.widget().deleteLater()
 
-        items = income_repo.get_items(include_archived=True)
+        items = self.repo.get_items(include_archived=True)
         for item in items:
             row = QHBoxLayout()
 
@@ -96,7 +102,7 @@ class ItemManagerDialog(QDialog):
             self.list_layout.addWidget(row_widget)
 
     def _on_toggle(self, item_id: int, make_active: bool):
-        income_repo.set_item_active(item_id, make_active)
+        self.repo.set_item_active(item_id, make_active)
         self._refresh_list()
         self.items_changed.emit()
 
@@ -105,7 +111,7 @@ class ItemManagerDialog(QDialog):
         if not name:
             return
         try:
-            income_repo.add_item(name)
+            self.repo.add_item(name)
         except Exception:
             QMessageBox.warning(self, "Kalem eklenemedi", "Bu isimde bir kalem zaten var.")
             return

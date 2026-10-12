@@ -400,7 +400,9 @@ class IncomeView(QWidget):
     # ---------- Olaylar ----------
 
     def _on_manage_items_clicked(self):
-        dialog = ItemManagerDialog(self)
+        dialog = ItemManagerDialog(
+            income_repo, "Gelir Kalemleri", "Yeni kalem adı (örn. İkramiye)", self
+        )
         dialog.items_changed.connect(self._reload_all)
         dialog.exec()
 

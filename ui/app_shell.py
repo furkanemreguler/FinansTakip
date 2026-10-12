@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Signal, Qt
 
 from ui.income_view import IncomeView
+from ui.investment_view import InvestmentView
+from ui.assets_view import AssetsView
 from ui.placeholder_view import PlaceholderView
 from ui.segmented_control import SegmentedControl
 from db import DB_PATH
@@ -32,8 +34,8 @@ class AppShell(QWidget):
         self.screens = [
             ("Gelir", IncomeView()),
             ("Harcama", PlaceholderView("Harcama")),
-            ("Yatırım", PlaceholderView("Yatırım")),
-            ("Varlık ve Borç", PlaceholderView("Varlık ve Borç")),
+            ("Yatırım", InvestmentView()),
+            ("Varlık ve Borç", AssetsView()),
         ]
         for _, widget in self.screens:
             self.stack.addWidget(widget)
@@ -41,6 +43,8 @@ class AppShell(QWidget):
 
         income_view = self.screens[0][1]
         self.theme_changed.connect(income_view.apply_theme)
+        investment_view = self.screens[2][1]
+        self.theme_changed.connect(investment_view.apply_theme)
 
         self._select_tab(0)
 
