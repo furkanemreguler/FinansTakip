@@ -22,10 +22,23 @@ Tablolar:
 Brüt USD, Net USD, net/brüt oranı, cutoff — bunlar TABLODA TUTULMAZ,
 her zaman income_records.py içindeki fonksiyonlarla anlık hesaplanır.
 """
+import shutil
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "finans.sqlite"
+# Veritabanı kodun yanında değil, kullanıcının uygulama verisi klasöründe
+# tutulur; böylece paketlenmiş .app (PyInstaller) ile de kalıcı olur ve
+# kaynak koddan çalıştırırken de aynı veriler kullanılır.
+DATA_DIR = Path.home() / "Library" / "Application Support" / "FinansTakip"
+DB_PATH = DATA_DIR / "finans.sqlite"
+LEGACY_DB_PATH = Path(__file__).parent / "finans.sqlite"
+
+
+def _ensure_db_location() -> None:
+    """Klasörü oluşturur; eski konumda (proje klasörü) veritabanı varsa bir kez taşır."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not DB_PATH.exists() and LEGACY_DB_PATH.exists():
+        shutil.copy2(LEGACY_DB_PATH, DB_PATH)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -36,6 +49,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
+    _ensure_db_location()
     conn = get_connection()
     conn.execute(
         """

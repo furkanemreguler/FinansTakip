@@ -28,3 +28,6 @@ class SummaryCard(QFrame):
         self.value_label.setText(value)
         self.sub_label.setText(sub)
         self.sub_label.setVisible(bool(sub))
+    def set_value_color(self, color: str | None):
+        """Değeri belirli bir renkte gösterir (örn. kâr yeşil, zarar kırmızı); None varsayılana döner."""
+        self.value_label.setStyleSheet(f"color: {color};" if color else "")

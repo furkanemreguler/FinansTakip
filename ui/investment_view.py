@@ -5,7 +5,8 @@ Bölümler (yukarıdan aşağı):
 1. Başlık + araç filtresi + "Araçları yönet"
 2. Her zaman görünen tek satırlık yeni işlem formu (Tarih, Araç, Alış/Satış,
    Miktar, Birim fiyat TL — Tutar anlık hesaplanıp gösterilir)
-3. Dört özet kartı (Toplam alım, Toplam satım, Net yatırım, İşlem sayısı)
+3. Beş özet kartı (Toplam alım, Toplam satım, Elde kalan maliyet,
+   Gerçekleşen K/Z, İşlem sayısı)
 4. Geçmiş işlemler tablosu (sayfalama, satır içi silme)
 
 income_view'dan farklı olarak kur çekme yok — fiyat doğrudan TL olarak
@@ -20,7 +21,7 @@ from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QColor
 
 import investment_repo
-from formatting import fmt_try, fmt_qty, parse_decimal
+from formatting import fmt_try, fmt_qty, fmt_pct, parse_decimal
 from ui.summary_card import SummaryCard
 from ui.item_manager_dialog import ItemManagerDialog
 from ui.segmented_control import SegmentedControl
@@ -43,6 +44,7 @@ class InvestmentView(QWidget):
 
     def apply_theme(self, mode: str):
         self._theme = DARK if mode == "dark" else LIGHT
+        self._refresh_summary_and_table()
 
     # ---------- UI kurulum ----------
 
@@ -172,13 +174,15 @@ class InvestmentView(QWidget):
 
         self.card_buy = SummaryCard("Toplam alım")
         self.card_sell = SummaryCard("Toplam satım")
-        self.card_net = SummaryCard("Net yatırım", highlight=True)
+        self.card_open = SummaryCard("Elde kalan maliyet")
+        self.card_pnl = SummaryCard("Gerçekleşen K/Z", highlight=True)
         self.card_count = SummaryCard("İşlem sayısı")
 
         grid.addWidget(self.card_buy, 0, 0)
         grid.addWidget(self.card_sell, 0, 1)
-        grid.addWidget(self.card_net, 0, 2)
-        grid.addWidget(self.card_count, 0, 3)
+        grid.addWidget(self.card_open, 0, 2)
+        grid.addWidget(self.card_pnl, 0, 3)
+        grid.addWidget(self.card_count, 0, 4)
 
         return widget
 
@@ -342,7 +346,18 @@ class InvestmentView(QWidget):
         summary = investment_repo.get_summary(self.filter_item_id)
         self.card_buy.set_value(fmt_try(summary["total_buy_try"]))
         self.card_sell.set_value(fmt_try(summary["total_sell_try"]))
-        self.card_net.set_value(fmt_try(summary["net_try"]))
+        self.card_open.set_value(fmt_try(summary["open_cost_try"]))
+        pnl = summary["realized_pnl_try"]
+        sign = "+" if pnl > 0 else ""
+        self.card_pnl.set_value(
+            f"{sign}{fmt_try(pnl)}", f"{sign}{fmt_pct(summary['realized_pnl_pct'])}"
+        )
+        if pnl > 0:
+            self.card_pnl.set_value_color(self._theme["success"])
+        elif pnl < 0:
+            self.card_pnl.set_value_color(self._theme["danger"])
+        else:
+            self.card_pnl.set_value_color(None)
         self.card_count.set_value(str(summary["count"]))
 
         self._refresh_table()

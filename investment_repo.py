@@ -96,13 +96,48 @@ def get_transactions(item_id: Optional[int] = None) -> list:
     return result
 
 
+def _position_by_item(txs: list) -> dict:
+    """
+    Ortalama maliyet yöntemiyle her araç için elde kalan miktar, elde kalan
+    maliyet ve gerçekleşen kâr/zararı hesaplar. Satışta, o ana kadarki
+    ortalama birim maliyet satılan miktar oranında pozisyondan düşülür;
+    satış tutarı ile bu maliyet arasındaki fark gerçekleşen K/Z'dir.
+    """
+    positions: dict = {}
+    # Eskiden yeniye; aynı gün içinde girilme sırasına göre
+    for t in sorted(txs, key=lambda t: (t["date"], t["id"])):
+        pos = positions.setdefault(t["item_id"], {"qty": 0.0, "cost": 0.0, "realized": 0.0})
+        if t["side"] == BUY:
+            pos["qty"] += t["quantity"]
+            pos["cost"] += t["total_try"]
+        else:
+            avg_cost = pos["cost"] / pos["qty"] if pos["qty"] else 0
+            sold_qty = min(t["quantity"], pos["qty"])
+            sold_cost = avg_cost * sold_qty
+            pos["realized"] += t["total_try"] - sold_cost
+            pos["qty"] -= sold_qty
+            pos["cost"] -= sold_cost
+    return positions
+
+
 def get_summary(item_id: Optional[int] = None) -> dict:
+    """
+    open_cost_try: elde kalan pozisyonların ortalama maliyetle TL karşılığı.
+    realized_pnl_try: satışlardan gerçekleşen kâr/zarar (ortalama maliyete göre).
+    realized_pnl_pct: gerçekleşen K/Z'nin satılan miktarın maliyetine oranı.
+    """
     txs = get_transactions(item_id)
     total_buy = sum(t["total_try"] for t in txs if t["side"] == BUY)
     total_sell = sum(t["total_try"] for t in txs if t["side"] == SELL)
+    positions = _position_by_item(txs).values()
+    open_cost = sum(p["cost"] for p in positions)
+    realized = sum(p["realized"] for p in positions)
+    sold_cost = total_buy - open_cost
     return {
         "total_buy_try": total_buy,
         "total_sell_try": total_sell,
-        "net_try": total_buy - total_sell,
+        "open_cost_try": open_cost,
+        "realized_pnl_try": realized,
+        "realized_pnl_pct": realized / sold_cost if sold_cost else 0,
         "count": len(txs),
     }
